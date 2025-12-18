@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Suivi professionnel des cycles de batteries de drone">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Drone Batteries">
+    
+    <title>Drone Battery Tracker</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%2360a5fa' width='100' height='100' rx='20'/><rect fill='%23fff' x='15' y='30' width='55' height='40' rx='5'/><rect fill='%2360a5fa' x='20' y='35' width='20' height='30' rx='2'/><rect fill='%2360a5fa' x='45' y='35' width='20' height='30' rx='2'/><rect fill='%23fff' x='70' y='45' width='15' height='10' rx='2'/></svg>">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Outfit:wght@300;400;600;700;900&display=swap');
+
+        :root {
+            --bg-primary: #0a0e1a;
+            --bg-secondary: #111827;
+            --bg-tertiary: #1e293b;
+            --accent-blue: #3b82f6;
+            --accent-cyan: #06b6d4;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --accent-yellow: #f59e0b;
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-muted: #64748b;
+            --border: rgba(148, 163, 184, 0.1);
+            --shadow: rgba(0, 0, 0, 0.5);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Animated background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(6, 182, 212, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 40% 20%, rgba(16, 185, 129, 0.1) 0%, transparent 40%);
+            pointer-events: none;
+            z-index: -1;
+            animation: bgPulse 15s ease-in-out infinite;
+        }
+
+        @keyframes bgPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+            border-radius: 24px;
+            padding: 40px;
+            margin-bottom: 30px;
+            box-shadow: 0 20px 60px var(--shadow);
+            border: 1px solid var(--border);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -10%;
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.2) 0%, transparent 70%);
+            border-radius: 50%;
+            animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(-20px, -20px); }
+        }
+
+        .header-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .header h1 {
+            font-size: clamp(1.8rem, 5vw, 3rem);
+            font-weight: 900;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            background: linear-gradient(135deg, var(--accent-cyan) 0%, var(--accent-blue) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .battery-icon {
+            width: 48px;
+            height: 48px;
+            filter: drop-shadow(0 0 20px rgba(59, 130, 246, 0.5));
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1rem;
+            margin-bottom: 30px;
+            font-weight: 300;
+        }
+
+        .add-battery-form {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        input, select, textarea, button {
+            padding: 14px 20px;
+            border: 2px solid transparent;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-family: 'Outfit', sans-serif;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            outline: none;
+        }
+
+        input, select, textarea {
+            background: rgba(30, 41, 59, 0.8);
+            color: var(--text-primary);
+            border-color: var(--border);
+            flex: 1;
+            min-width: 200px;
+            backdrop-filter: blur(10px);
+        }
+
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--accent-blue);
+            background: rgba(30, 41, 59, 1);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(59, 130, 246, 0.2);
+        }
+
+        button {
+            background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-cyan) 100%);
+            color: white;
+            cursor: pointer;
+            font-weight: 600;
+            border: none;
+            position: relative;
+            overflow: hidden;
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+        }
+
+        button::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        button:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 32px rgba(59, 130, 246, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            background: var(--bg-tertiary);
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+
+        button.danger {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+
+        button.success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 500px), 1fr));
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: linear-gradient(135deg, var(--bg-secondary) 0%, rgba(30, 41, 59, 0.8) 100%);
+            border-radius: 24px;
+            padding: 32px;
+            box-shadow: 0 20px 60px var(--shadow);
+            border: 1px solid var(--border);
+            backdrop-filter: blur(10px);
+            animation: slideUp 0.6s ease-out;
+            animation-fill-mode: both;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(40px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .card:nth-child(2) { animation-delay: 0.1s; }
+        .card:nth-child(3) { animation-delay: 0.2s; }
+
+        .card h2 {
+            font-size: 1.5rem;
+            margin-bottom: 24px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .card h2::before {
+            content: '';
+            width: 4px;
+            height: 24px;
+            background: linear-gradient(180deg, var(--accent-cyan) 0%, var(--accent-blue) 100%);
+            border-radius: 2px;
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text-secondary);
+            font-weight: 500;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px;
+            background: rgba(59, 130, 246, 0.05);
+            border-radius: 12px;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .checkbox-group:hover {
+            background: rgba(59, 130, 246, 0.1);
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            flex: none;
+            accent-color: var(--accent-blue);
+        }
+
+        .checkbox-group label {
+            margin: 0 !important;
+            cursor: pointer;
+            text-transform: none;
+            font-family: 'Outfit', sans-serif;
+            letter-spacing: normal;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 100px;
+            resize: vertical;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Battery List */
+        .battery-list {
+            max-height: 600px;
+            overflow-y: auto;
+            padding-right: 8px;
+        }
+
+        .battery-list::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .battery-list::-webkit-scrollbar-track {
+            background: rgba(30, 41, 59, 0.3);
+            border-radius: 4px;
+        }
+
+        .battery-list::-webkit-scrollbar-thumb {
+            background: var(--accent-blue);
+            border-radius: 4px;
+        }
+
+        .battery-item {
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.6) 0%, rgba(30, 41, 59, 0.3) 100%);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 16px;
+            border: 1px solid var(--border);
+            transition: all 0.3s ease;
+            animation: slideIn 0.4s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .battery-item:hover {
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(30, 41, 59, 0.5) 100%);
+            border-color: var(--accent-blue);
+            transform: translateX(4px);
+        }
+
+        .battery-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 16px;
+        }
+
+        .battery-info h3 {
+            font-size: 1.4rem;
+            margin-bottom: 6px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .battery-info .cycles {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(6, 182, 212, 0.2) 100%);
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+
+        .battery-actions button {
+            padding: 10px 16px;
+            font-size: 0.8rem;
+        }
+
+        .last-flight {
+            border-top: 1px solid var(--border);
+            padding-top: 16px;
+            margin-top: 16px;
+        }
+
+        .last-flight-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            gap: 16px;
+        }
+
+        .last-flight p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin: 4px 0;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .last-flight strong {
+            color: var(--text-primary);
+        }
+
+        .problem-alert {
+            display: flex;
+            align-items: start;
+            gap: 10px;
+            margin-top: 12px;
+            padding: 12px;
+            background: rgba(245, 158, 11, 0.1);
+            border-left: 3px solid var(--accent-yellow);
+            border-radius: 8px;
+            color: var(--accent-yellow);
+            font-size: 0.85rem;
+        }
+
+        .alert-icon {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: var(--text-muted);
+            padding: 80px 20px;
+            font-size: 1.1rem;
+        }
+
+        .empty-state-icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 20px;
+            opacity: 0.3;
+        }
+
+        /* History Table */
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0 8px;
+        }
+
+        thead {
+            background: rgba(30, 41, 59, 0.6);
+        }
+
+        th {
+            padding: 16px;
+            text-align: left;
+            font-weight: 700;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-family: 'JetBrains Mono', monospace;
+            border: none;
+        }
+
+        th:first-child {
+            border-radius: 12px 0 0 12px;
+        }
+
+        th:last-child {
+            border-radius: 0 12px 12px 0;
+        }
+
+        td {
+            padding: 16px;
+            background: rgba(30, 41, 59, 0.3);
+            border: none;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+        }
+
+        tbody tr {
+            transition: all 0.3s ease;
+        }
+
+        tbody tr:hover td {
+            background: rgba(30, 41, 59, 0.6);
+        }
+
+        tbody tr td:first-child {
+            border-radius: 12px 0 0 12px;
+        }
+
+        tbody tr td:last-child {
+            border-radius: 0 12px 12px 0;
+        }
+
+        .status-ok {
+            color: var(--accent-green);
+            font-weight: 600;
+        }
+
+        .delete-btn {
+            background: none;
+            color: var(--accent-red);
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            border: 1px solid var(--accent-red);
+        }
+
+        .delete-btn:hover {
+            background: var(--accent-red);
+            color: white;
+        }
+
+        /* Stats Badge */
+        .stats-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(6, 182, 212, 0.2) 100%);
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Install Prompt */
+        .install-prompt {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-cyan) 100%);
+            color: white;
+            padding: 16px 24px;
+            border-radius: 16px;
+            box-shadow: 0 12px 40px rgba(59, 130, 246, 0.4);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            z-index: 1000;
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            max-width: 90%;
+        }
+
+        .install-prompt.show {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .install-prompt button {
+            padding: 10px 20px;
+            background: white;
+            color: var(--accent-blue);
+            font-size: 0.9rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 16px;
+            }
+
+            .header {
+                padding: 24px;
+            }
+
+            .card {
+                padding: 24px;
+            }
+
+            .add-battery-form {
+                flex-direction: column;
+            }
+
+            input, select {
+                min-width: 100%;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            table {
+                font-size: 0.8rem;
+            }
+
+            th, td {
+                padding: 12px 8px;
+            }
+        }
+
+        /* Loading spinner */
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid rgba(59, 130, 246, 0.2);
+            border-top-color: var(--accent-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 40px auto;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Toast notifications */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, var(--accent-green) 0%, #059669 100%);
+            color: white;
+            padding: 16px 24px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(16, 185, 129, 0.4);
+            z-index: 1000;
+            animation: slideInRight 0.4s ease-out;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+        }
+
+        @keyframes slideInRight {
+            from { transform: translateX(400px); }
+            to { transform: translateX(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-content">
+                <h1>
+                    <svg class="battery-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="1" y="6" width="18" height="12" rx="2" ry="2"></rect>
+                        <line x1="23" y1="13" x2="23" y2="11"></line>
+                    </svg>
+                    DRONE BATTERY TRACKER
+                </h1>
+                <p class="subtitle">Système de suivi professionnel pour cycles de batteries</p>
+                <div class="add-battery-form">
+                    <input type="text" id="newBatteryNumber" placeholder="Numéro de batterie (ex: 1, 2, 3...)">
+                    <button onclick="addBattery()">+ Ajouter Batterie</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid">
+            <!-- Log Flight Section -->
+            <div class="card">
+                <h2>📝 Enregistrer un Vol</h2>
+                
+                <div class="form-group">
+                    <label>Batterie</label>
+                    <select id="selectedBattery" onchange="updateSelectedBattery()">
+                        <option value="">Sélectionner une batterie</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Temps de Vol (min)</label>
+                    <input type="number" id="flightTime" step="0.1" placeholder="15.5">
+                </div>
+
+                <div class="form-group">
+                    <label>Voltage Min/Cell (V)</label>
+                    <input type="number" id="minVoltage" step="0.01" placeholder="3.50">
+                </div>
+
+                <div class="form-group">
+                    <div class="checkbox-group" onclick="document.getElementById('hasProblem').click()">
+                        <input type="checkbox" id="hasProblem" onchange="toggleProblemDescription()" onclick="event.stopPropagation()">
+                        <label for="hasProblem">⚠️ Problème détecté</label>
+                    </div>
+                </div>
+
+                <div class="form-group" id="problemDescriptionGroup" style="display: none;">
+                    <label>Description</label>
+                    <textarea id="problemDescription" placeholder="Décrire le problème détecté..."></textarea>
+                </div>
+
+                <button class="success" onclick="logFlight()" style="width: 100%;">✓ Enregistrer le Vol</button>
+            </div>
+
+            <!-- Battery Overview -->
+            <div class="card">
+                <h2>🔋 Vue d'Ensemble</h2>
+                <div id="batteryList" class="battery-list"></div>
+            </div>
+        </div>
+
+        <!-- Detailed History -->
+        <div class="card" id="historySection" style="display: none;">
+            <h2>📊 Historique - <span id="historyBatteryNumber"></span></h2>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date & Heure</th>
+                            <th>Temps</th>
+                            <th>Voltage</th>
+                            <th>État</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Install Prompt -->
+    <div class="install-prompt" id="installPrompt">
+        <span>📱 Installer l'app sur votre appareil</span>
+        <button onclick="installApp()">Installer</button>
+        <button onclick="hideInstallPrompt()" style="background: transparent; color: white; border: 1px solid white;">Plus tard</button>
+    </div>
+
+    <script>
+        let batteries = {};
+        let selectedBattery = '';
+        let deferredPrompt;
+
+        // PWA Install prompt
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            document.getElementById('installPrompt').classList.add('show');
+        });
+
+        function installApp() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        showToast('Application installée avec succès! 🎉');
+                    }
+                    deferredPrompt = null;
+                    hideInstallPrompt();
+                });
+            }
+        }
+
+        function hideInstallPrompt() {
+            document.getElementById('installPrompt').classList.remove('show');
+        }
+
+        // Load data from localStorage
+        function loadData() {
+            const saved = localStorage.getItem('droneBatteries');
+            if (saved) {
+                batteries = JSON.parse(saved);
+            }
+            updateUI();
+        }
+
+        // Save data to localStorage
+        function saveData() {
+            localStorage.setItem('droneBatteries', JSON.stringify(batteries));
+        }
+
+        // Show toast notification
+        function showToast(message) {
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        // Add a new battery
+        function addBattery() {
+            const input = document.getElementById('newBatteryNumber');
+            const number = input.value.trim();
+            
+            if (!number) {
+                showToast('⚠️ Veuillez entrer un numéro de batterie');
+                return;
+            }
+
+            if (batteries[number]) {
+                showToast('⚠️ Cette batterie existe déjà');
+                return;
+            }
+
+            batteries[number] = {
+                number: number,
+                cycles: 0,
+                flights: []
+            };
+
+            saveData();
+            input.value = '';
+            updateUI();
+            showToast(`✓ Batterie ${number} ajoutée`);
+        }
+
+        // Delete a battery
+        function deleteBattery(batteryNumber) {
+            if (!confirm(`Supprimer la batterie ${batteryNumber} et tout son historique ?`)) {
+                return;
+            }
+
+            delete batteries[batteryNumber];
+            saveData();
+
+            if (selectedBattery === batteryNumber) {
+                selectedBattery = '';
+                document.getElementById('historySection').style.display = 'none';
+            }
+
+            updateUI();
+            showToast(`✓ Batterie ${batteryNumber} supprimée`);
+        }
+
+        // Log a flight
+        function logFlight() {
+            const battery = document.getElementById('selectedBattery').value;
+            const flightTime = document.getElementById('flightTime').value;
+            const minVoltage = document.getElementById('minVoltage').value;
+            const hasProblem = document.getElementById('hasProblem').checked;
+            const problemDescription = document.getElementById('problemDescription').value;
+
+            if (!battery || !flightTime || !minVoltage) {
+                showToast('⚠️ Veuillez remplir tous les champs obligatoires');
+                return;
+            }
+
+            const flight = {
+                date: new Date().toISOString(),
+                flightTime: parseFloat(flightTime),
+                minVoltage: parseFloat(minVoltage),
+                hasProblem: hasProblem,
+                problemDescription: hasProblem ? problemDescription : ''
+            };
+
+            batteries[battery].cycles++;
+            batteries[battery].flights.unshift(flight);
+
+            saveData();
+
+            // Reset form
+            document.getElementById('flightTime').value = '';
+            document.getElementById('minVoltage').value = '';
+            document.getElementById('hasProblem').checked = false;
+            document.getElementById('problemDescription').value = '';
+            toggleProblemDescription();
+
+            updateUI();
+            showToast(`✓ Vol enregistré pour batterie ${battery}`);
+        }
+
+        // Delete last flight
+        function deleteLastFlight(batteryNumber) {
+            if (!confirm('Supprimer le dernier vol enregistré ?')) {
+                return;
+            }
+
+            batteries[batteryNumber].flights.shift();
+            batteries[batteryNumber].cycles = Math.max(0, batteries[batteryNumber].cycles - 1);
+
+            saveData();
+            updateUI();
+            showToast('✓ Vol supprimé');
+        }
+
+        // Toggle problem description visibility
+        function toggleProblemDescription() {
+            const hasProblem = document.getElementById('hasProblem').checked;
+            document.getElementById('problemDescriptionGroup').style.display = hasProblem ? 'block' : 'none';
+        }
+
+        // Update selected battery for history view
+        function updateSelectedBattery() {
+            selectedBattery = document.getElementById('selectedBattery').value;
+            updateHistoryView();
+        }
+
+        // Format date
+        function formatDate(isoString) {
+            const date = new Date(isoString);
+            return date.toLocaleDateString('fr-FR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // Update entire UI
+        function updateUI() {
+            updateBatterySelect();
+            updateBatteryList();
+            updateHistoryView();
+        }
+
+        // Update battery select dropdown
+        function updateBatterySelect() {
+            const select = document.getElementById('selectedBattery');
+            const currentValue = select.value;
+            
+            const sortedBatteries = Object.values(batteries).sort((a, b) => {
+                const aNum = parseInt(a.number) || 0;
+                const bNum = parseInt(b.number) || 0;
+                return aNum - bNum;
+            });
+
+            select.innerHTML = '<option value="">Sélectionner une batterie</option>';
+            
+            sortedBatteries.forEach(bat => {
+                const option = document.createElement('option');
+                option.value = bat.number;
+                option.textContent = `Batterie ${bat.number} (${bat.cycles} cycle${bat.cycles !== 1 ? 's' : ''})`;
+                select.appendChild(option);
+            });
+
+            if (currentValue && batteries[currentValue]) {
+                select.value = currentValue;
+            }
+        }
+
+        // Update battery overview list
+        function updateBatteryList() {
+            const list = document.getElementById('batteryList');
+            const sortedBatteries = Object.values(batteries).sort((a, b) => {
+                const aNum = parseInt(a.number) || 0;
+                const bNum = parseInt(b.number) || 0;
+                return aNum - bNum;
+            });
+
+            if (sortedBatteries.length === 0) {
+                list.innerHTML = `
+                    <div class="empty-state">
+                        <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="1" y="6" width="18" height="12" rx="2" ry="2"></rect>
+                            <line x1="23" y1="13" x2="23" y2="11"></line>
+                        </svg>
+                        <div>Aucune batterie ajoutée</div>
+                        <div style="margin-top: 10px; font-size: 0.9rem;">Commencez par ajouter une batterie ci-dessus</div>
+                    </div>
+                `;
+                return;
+            }
+
+            list.innerHTML = sortedBatteries.map(battery => {
+                const lastFlight = battery.flights[0];
+                
+                return `
+                    <div class="battery-item">
+                        <div class="battery-header">
+                            <div class="battery-info">
+                                <h3>🔋 BATT-${battery.number}</h3>
+                                <span class="cycles">${battery.cycles} CYCLE${battery.cycles !== 1 ? 'S' : ''}</span>
+                            </div>
+                            <div class="battery-actions">
+                                <button class="danger" onclick="deleteBattery('${battery.number}')">
+                                    🗑 Supprimer
+                                </button>
+                            </div>
+                        </div>
+                        ${lastFlight ? `
+                            <div class="last-flight">
+                                <div class="last-flight-header">
+                                    <div>
+                                        <p><strong>Dernier vol:</strong></p>
+                                        <p>${formatDate(lastFlight.date)}</p>
+                                        <p><strong>${lastFlight.flightTime} min</strong> · <strong>${lastFlight.minVoltage}V</strong>/cell</p>
+                                        ${lastFlight.hasProblem ? `
+                                            <div class="problem-alert">
+                                                <svg class="alert-icon" viewBox="0 0 24 24" fill="currentColor">
+                                                    <circle cx="12" cy="12" r="10"></circle>
+                                                    <line x1="12" y1="8" x2="12" y2="12" stroke="#0a0e1a" stroke-width="2"></line>
+                                                    <line x1="12" y1="16" x2="12.01" y2="16" stroke="#0a0e1a" stroke-width="2"></line>
+                                                </svg>
+                                                <span>${lastFlight.problemDescription}</span>
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                    <button class="delete-btn" onclick="deleteLastFlight('${battery.number}')">
+                                        ✕ Annuler
+                                    </button>
+                                </div>
+                            </div>
+                        ` : '<div style="color: var(--text-muted); font-size: 0.9rem; margin-top: 8px;">Aucun vol enregistré</div>'}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Update history view
+        function updateHistoryView() {
+            const historySection = document.getElementById('historySection');
+            const historyBatteryNumber = document.getElementById('historyBatteryNumber');
+            const historyTableBody = document.getElementById('historyTableBody');
+
+            if (!selectedBattery || !batteries[selectedBattery]) {
+                historySection.style.display = 'none';
+                return;
+            }
+
+            historySection.style.display = 'block';
+            historyBatteryNumber.textContent = `Batterie ${selectedBattery}`;
+
+            const flights = batteries[selectedBattery].flights;
+
+            if (flights.length === 0) {
+                historyTableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">Aucun vol enregistré</td></tr>';
+                return;
+            }
+
+            historyTableBody.innerHTML = flights.map(flight => `
+                <tr>
+                    <td>${formatDate(flight.date)}</td>
+                    <td>${flight.flightTime} min</td>
+                    <td>${flight.minVoltage}V</td>
+                    <td>
+                        ${flight.hasProblem ? `
+                            <div class="problem-alert" style="margin: 0;">
+                                <svg class="alert-icon" viewBox="0 0 24 24" fill="currentColor">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <line x1="12" y1="8" x2="12" y2="12" stroke="#0a0e1a" stroke-width="2"></line>
+                                    <line x1="12" y1="16" x2="12.01" y2="16" stroke="#0a0e1a" stroke-width="2"></line>
+                                </svg>
+                                <span>${flight.problemDescription}</span>
+                            </div>
+                        ` : '<span class="status-ok">✓ OK</span>'}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Initialize on page load
+        loadData();
+
+        // Handle Enter key in battery number input
+        document.getElementById('newBatteryNumber').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                addBattery();
+            }
+        });
+
+        // Register service worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').then(registration => {
+                console.log('Service Worker enregistré avec succès:', registration);
+            }).catch(error => {
+                console.log('Échec de l\'enregistrement du Service Worker:', error);
+            });
+        }
+    </script>
+</body>
+</html>
