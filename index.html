@@ -3,15 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Suivi professionnel des cycles de batteries de drone">
+    <meta name="description" content="Suivi professionnel des cycles de batteries de drone avec sync cloud">
     <meta name="theme-color" content="#0f172a">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Drone Batteries">
     
-    <title>Drone Battery Tracker</title>
+    <title>Drone Battery Tracker Pro</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.jsdelivr.net; connect-src 'self' https://*.supabase.co https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:;">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%2360a5fa' width='100' height='100' rx='20'/><rect fill='%23fff' x='15' y='30' width='55' height='40' rx='5'/><rect fill='%2360a5fa' x='20' y='35' width='20' height='30' rx='2'/><rect fill='%2360a5fa' x='45' y='35' width='20' height='30' rx='2'/><rect fill='%23fff' x='70' y='45' width='15' height='10' rx='2'/></svg>">
+    
+    <!-- Supabase Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Outfit:wght@300;400;600;700;900&display=swap');
@@ -25,6 +29,7 @@
             --accent-green: #10b981;
             --accent-red: #ef4444;
             --accent-yellow: #f59e0b;
+            --accent-purple: #a855f7;
             --text-primary: #f8fafc;
             --text-secondary: #cbd5e1;
             --text-muted: #64748b;
@@ -47,7 +52,6 @@
             overflow-x: hidden;
         }
 
-        /* Animated background */
         body::before {
             content: '';
             position: fixed;
@@ -58,7 +62,7 @@
             background: 
                 radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
                 radial-gradient(circle at 80% 80%, rgba(6, 182, 212, 0.15) 0%, transparent 50%),
-                radial-gradient(circle at 40% 20%, rgba(16, 185, 129, 0.1) 0%, transparent 40%);
+                radial-gradient(circle at 40% 20%, rgba(168, 85, 247, 0.1) 0%, transparent 40%);
             pointer-events: none;
             z-index: -1;
             animation: bgPulse 15s ease-in-out infinite;
@@ -81,7 +85,6 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* Header */
         .header {
             background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
             border-radius: 24px;
@@ -100,7 +103,7 @@
             right: -10%;
             width: 300px;
             height: 300px;
-            background: radial-gradient(circle, rgba(59, 130, 246, 0.2) 0%, transparent 70%);
+            background: radial-gradient(circle, rgba(168, 85, 247, 0.2) 0%, transparent 70%);
             border-radius: 50%;
             animation: float 6s ease-in-out infinite;
         }
@@ -118,33 +121,64 @@
         .header h1 {
             font-size: clamp(1.8rem, 5vw, 3rem);
             font-weight: 900;
-            margin-bottom: 12px;
+            margin-bottom: 8px;
             display: flex;
             align-items: center;
             gap: 16px;
-            background: linear-gradient(135deg, var(--accent-cyan) 0%, var(--accent-blue) 100%);
+            background: linear-gradient(135deg, var(--accent-purple) 0%, var(--accent-cyan) 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
 
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-bottom: 8px;
+            font-weight: 300;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .sync-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            background: rgba(168, 85, 247, 0.15);
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            border: 1px solid rgba(168, 85, 247, 0.3);
+            margin-bottom: 20px;
+        }
+
+        .sync-icon {
+            width: 16px;
+            height: 16px;
+            animation: spin 2s linear infinite;
+        }
+
+        .sync-icon.synced {
+            animation: none;
+            color: var(--accent-green);
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
         .battery-icon {
             width: 48px;
             height: 48px;
-            filter: drop-shadow(0 0 20px rgba(59, 130, 246, 0.5));
+            filter: drop-shadow(0 0 20px rgba(168, 85, 247, 0.5));
             animation: pulse 2s ease-in-out infinite;
         }
 
         @keyframes pulse {
             0%, 100% { transform: scale(1); }
             50% { transform: scale(1.05); }
-        }
-
-        .subtitle {
-            color: var(--text-secondary);
-            font-size: 1rem;
-            margin-bottom: 30px;
-            font-weight: 300;
         }
 
         .add-battery-form {
@@ -173,14 +207,14 @@
         }
 
         input:focus, select:focus, textarea:focus {
-            border-color: var(--accent-blue);
+            border-color: var(--accent-purple);
             background: rgba(30, 41, 59, 1);
             transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(59, 130, 246, 0.2);
+            box-shadow: 0 8px 24px rgba(168, 85, 247, 0.2);
         }
 
         button {
-            background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-cyan) 100%);
+            background: linear-gradient(135deg, var(--accent-purple) 0%, var(--accent-cyan) 100%);
             color: white;
             cursor: pointer;
             font-weight: 600;
@@ -213,7 +247,7 @@
 
         button:hover {
             transform: translateY(-2px);
-            box-shadow: 0 12px 32px rgba(59, 130, 246, 0.4);
+            box-shadow: 0 12px 32px rgba(168, 85, 247, 0.4);
         }
 
         button:active {
@@ -273,7 +307,7 @@
             content: '';
             width: 4px;
             height: 24px;
-            background: linear-gradient(180deg, var(--accent-cyan) 0%, var(--accent-blue) 100%);
+            background: linear-gradient(180deg, var(--accent-purple) 0%, var(--accent-cyan) 100%);
             border-radius: 2px;
         }
 
@@ -297,16 +331,16 @@
             align-items: center;
             gap: 12px;
             padding: 16px;
-            background: rgba(59, 130, 246, 0.05);
+            background: rgba(168, 85, 247, 0.05);
             border-radius: 12px;
-            border: 1px solid rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(168, 85, 247, 0.2);
             cursor: pointer;
             transition: all 0.3s ease;
         }
 
         .checkbox-group:hover {
-            background: rgba(59, 130, 246, 0.1);
-            border-color: rgba(59, 130, 246, 0.3);
+            background: rgba(168, 85, 247, 0.1);
+            border-color: rgba(168, 85, 247, 0.3);
         }
 
         .checkbox-group input[type="checkbox"] {
@@ -314,7 +348,7 @@
             height: 24px;
             cursor: pointer;
             flex: none;
-            accent-color: var(--accent-blue);
+            accent-color: var(--accent-purple);
         }
 
         .checkbox-group label {
@@ -332,7 +366,6 @@
             font-family: 'JetBrains Mono', monospace;
         }
 
-        /* Battery List */
         .battery-list {
             max-height: 600px;
             overflow-y: auto;
@@ -349,7 +382,7 @@
         }
 
         .battery-list::-webkit-scrollbar-thumb {
-            background: var(--accent-blue);
+            background: var(--accent-purple);
             border-radius: 4px;
         }
 
@@ -370,7 +403,7 @@
 
         .battery-item:hover {
             background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(30, 41, 59, 0.5) 100%);
-            border-color: var(--accent-blue);
+            border-color: var(--accent-purple);
             transform: translateX(4px);
         }
 
@@ -393,12 +426,12 @@
             align-items: center;
             gap: 8px;
             padding: 6px 12px;
-            background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(6, 182, 212, 0.2) 100%);
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.2) 0%, rgba(6, 182, 212, 0.2) 100%);
             border-radius: 8px;
             font-size: 0.85rem;
             font-weight: 600;
             font-family: 'JetBrains Mono', monospace;
-            border: 1px solid rgba(59, 130, 246, 0.3);
+            border: 1px solid rgba(168, 85, 247, 0.3);
         }
 
         .battery-actions button {
@@ -465,7 +498,6 @@
             opacity: 0.3;
         }
 
-        /* History Table */
         table {
             width: 100%;
             border-collapse: separate;
@@ -538,31 +570,16 @@
             color: white;
         }
 
-        /* Stats Badge */
-        .stats-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 16px;
-            background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(6, 182, 212, 0.2) 100%);
-            border-radius: 12px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            border: 1px solid rgba(16, 185, 129, 0.3);
-            font-family: 'JetBrains Mono', monospace;
-        }
-
-        /* Install Prompt */
         .install-prompt {
             position: fixed;
             bottom: 20px;
             left: 50%;
             transform: translateX(-50%) translateY(100px);
-            background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-cyan) 100%);
+            background: linear-gradient(135deg, var(--accent-purple) 0%, var(--accent-cyan) 100%);
             color: white;
             padding: 16px 24px;
             border-radius: 16px;
-            box-shadow: 0 12px 40px rgba(59, 130, 246, 0.4);
+            box-shadow: 0 12px 40px rgba(168, 85, 247, 0.4);
             display: flex;
             align-items: center;
             gap: 16px;
@@ -578,11 +595,66 @@
         .install-prompt button {
             padding: 10px 20px;
             background: white;
-            color: var(--accent-blue);
+            color: var(--accent-purple);
             font-size: 0.9rem;
         }
 
-        /* Responsive */
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid rgba(168, 85, 247, 0.2);
+            border-top-color: var(--accent-purple);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 40px auto;
+        }
+
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, var(--accent-green) 0%, #059669 100%);
+            color: white;
+            padding: 16px 24px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(16, 185, 129, 0.4);
+            z-index: 1000;
+            animation: slideInRight 0.4s ease-out;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+        }
+
+        @keyframes slideInRight {
+            from { transform: translateX(400px); }
+            to { transform: translateX(0); }
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(10, 14, 26, 0.95);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            backdrop-filter: blur(10px);
+        }
+
+        .loading-content {
+            text-align: center;
+        }
+
+        .loading-content h2 {
+            margin-top: 20px;
+            font-size: 1.5rem;
+            background: linear-gradient(135deg, var(--accent-purple) 0%, var(--accent-cyan) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
         @media (max-width: 768px) {
             .container {
                 padding: 16px;
@@ -616,47 +688,17 @@
                 padding: 12px 8px;
             }
         }
-
-        /* Loading spinner */
-        .spinner {
-            width: 48px;
-            height: 48px;
-            border: 4px solid rgba(59, 130, 246, 0.2);
-            border-top-color: var(--accent-blue);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 40px auto;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        /* Toast notifications */
-        .toast {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: linear-gradient(135deg, var(--accent-green) 0%, #059669 100%);
-            color: white;
-            padding: 16px 24px;
-            border-radius: 12px;
-            box-shadow: 0 8px 32px rgba(16, 185, 129, 0.4);
-            z-index: 1000;
-            animation: slideInRight 0.4s ease-out;
-            font-family: 'JetBrains Mono', monospace;
-            font-weight: 600;
-        }
-
-        @keyframes slideInRight {
-            from { transform: translateX(400px); }
-            to { transform: translateX(0); }
-        }
     </style>
 </head>
 <body>
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <h2>Connexion à Supabase...</h2>
+        </div>
+    </div>
+
     <div class="container">
-        <!-- Header -->
         <div class="header">
             <div class="header-content">
                 <h1>
@@ -664,9 +706,15 @@
                         <rect x="1" y="6" width="18" height="12" rx="2" ry="2"></rect>
                         <line x1="23" y1="13" x2="23" y2="11"></line>
                     </svg>
-                    DRONE BATTERY TRACKER
+                    DRONE BATTERY TRACKER PRO
                 </h1>
-                <p class="subtitle">Système de suivi professionnel pour cycles de batteries</p>
+                <p class="subtitle">Système de suivi professionnel avec synchronisation cloud ☁️</p>
+                <div class="sync-status" id="syncStatus">
+                    <svg class="sync-icon synced" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span>Synchronisé</span>
+                </div>
                 <div class="add-battery-form">
                     <input type="text" id="newBatteryNumber" placeholder="Numéro de batterie (ex: 1, 2, 3...)">
                     <button onclick="addBattery()">+ Ajouter Batterie</button>
@@ -675,7 +723,6 @@
         </div>
 
         <div class="grid">
-            <!-- Log Flight Section -->
             <div class="card">
                 <h2>📝 Enregistrer un Vol</h2>
                 
@@ -711,14 +758,12 @@
                 <button class="success" onclick="logFlight()" style="width: 100%;">✓ Enregistrer le Vol</button>
             </div>
 
-            <!-- Battery Overview -->
             <div class="card">
                 <h2>🔋 Vue d'Ensemble</h2>
                 <div id="batteryList" class="battery-list"></div>
             </div>
         </div>
 
-        <!-- Detailed History -->
         <div class="card" id="historySection" style="display: none;">
             <h2>📊 Historique - <span id="historyBatteryNumber"></span></h2>
             <div style="overflow-x: auto;">
@@ -737,7 +782,6 @@
         </div>
     </div>
 
-    <!-- Install Prompt -->
     <div class="install-prompt" id="installPrompt">
         <span>📱 Installer l'app sur votre appareil</span>
         <button onclick="installApp()">Installer</button>
@@ -745,59 +789,105 @@
     </div>
 
     <script>
+        // Configuration Supabase
+        const SUPABASE_URL = 'https://ebhtbvjcuhsbfmwxbxwi.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImViaHRidmpjdWhzYmZtd3hieHdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYwNTk3MTgsImV4cCI6MjA4MTYzNTcxOH0._D28pCJI3JQUoCmiXRKfHUiWCBLJILXB_aMJfpsP1ZQ';
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
         let batteries = {};
         let selectedBattery = '';
         let deferredPrompt;
+        let isLoading = false;
 
-        // PWA Install prompt
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-            document.getElementById('installPrompt').classList.add('show');
-        });
-
-        function installApp() {
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                deferredPrompt.userChoice.then((choiceResult) => {
-                    if (choiceResult.outcome === 'accepted') {
-                        showToast('Application installée avec succès! 🎉');
-                    }
-                    deferredPrompt = null;
-                    hideInstallPrompt();
-                });
+        // Initialize app
+        async function initApp() {
+            try {
+                await loadBatteriesFromSupabase();
+                updateUI();
+                hideLoading();
+                setupRealtimeSubscription();
+            } catch (error) {
+                console.error('Erreur d\'initialisation:', error);
+                showToast('❌ Erreur de connexion à Supabase');
+                hideLoading();
             }
         }
 
-        function hideInstallPrompt() {
-            document.getElementById('installPrompt').classList.remove('show');
+        function hideLoading() {
+            document.getElementById('loadingOverlay').style.display = 'none';
         }
 
-        // Load data from localStorage
-        function loadData() {
-            const saved = localStorage.getItem('droneBatteries');
-            if (saved) {
-                batteries = JSON.parse(saved);
+        function setSyncStatus(syncing) {
+            const status = document.getElementById('syncStatus');
+            const icon = status.querySelector('.sync-icon');
+            const text = status.querySelector('span');
+            
+            if (syncing) {
+                icon.classList.remove('synced');
+                text.textContent = 'Synchronisation...';
+            } else {
+                icon.classList.add('synced');
+                text.textContent = 'Synchronisé';
             }
-            updateUI();
         }
 
-        // Save data to localStorage
-        function saveData() {
-            localStorage.setItem('droneBatteries', JSON.stringify(batteries));
+        // Load batteries from Supabase
+        async function loadBatteriesFromSupabase() {
+            setSyncStatus(true);
+            const { data: batteriesData, error: batteriesError } = await supabase
+                .from('batteries')
+                .select('*')
+                .order('battery_number');
+
+            if (batteriesError) throw batteriesError;
+
+            // Load flights for each battery
+            const { data: flightsData, error: flightsError } = await supabase
+                .from('flights')
+                .select('*')
+                .order('flight_date', { ascending: false });
+
+            if (flightsError) throw flightsError;
+
+            // Organize data
+            batteries = {};
+            batteriesData.forEach(bat => {
+                batteries[bat.battery_number] = {
+                    id: bat.id,
+                    number: bat.battery_number,
+                    cycles: bat.cycles,
+                    flights: flightsData
+                        .filter(f => f.battery_number === bat.battery_number)
+                        .map(f => ({
+                            date: f.flight_date,
+                            flightTime: f.flight_time,
+                            minVoltage: f.min_voltage,
+                            hasProblem: f.has_problem,
+                            problemDescription: f.problem_description || ''
+                        }))
+                };
+            });
+
+            setSyncStatus(false);
         }
 
-        // Show toast notification
-        function showToast(message) {
-            const toast = document.createElement('div');
-            toast.className = 'toast';
-            toast.textContent = message;
-            document.body.appendChild(toast);
-            setTimeout(() => toast.remove(), 3000);
+        // Setup real-time subscription
+        function setupRealtimeSubscription() {
+            supabase
+                .channel('batteries_changes')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'batteries' }, () => {
+                    loadBatteriesFromSupabase().then(() => updateUI());
+                })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'flights' }, () => {
+                    loadBatteriesFromSupabase().then(() => updateUI());
+                })
+                .subscribe();
         }
 
-        // Add a new battery
-        function addBattery() {
+        // Add battery
+        async function addBattery() {
+            if (isLoading) return;
             const input = document.getElementById('newBatteryNumber');
             const number = input.value.trim();
             
@@ -811,38 +901,66 @@
                 return;
             }
 
-            batteries[number] = {
-                number: number,
-                cycles: 0,
-                flights: []
-            };
+            isLoading = true;
+            setSyncStatus(true);
 
-            saveData();
-            input.value = '';
-            updateUI();
-            showToast(`✓ Batterie ${number} ajoutée`);
+            try {
+                const { error } = await supabase
+                    .from('batteries')
+                    .insert([{ battery_number: number, cycles: 0 }]);
+
+                if (error) throw error;
+
+                input.value = '';
+                await loadBatteriesFromSupabase();
+                updateUI();
+                showToast(`✓ Batterie ${number} ajoutée`);
+            } catch (error) {
+                console.error('Erreur:', error);
+                showToast('❌ Erreur lors de l\'ajout');
+            } finally {
+                isLoading = false;
+                setSyncStatus(false);
+            }
         }
 
-        // Delete a battery
-        function deleteBattery(batteryNumber) {
+        // Delete battery
+        async function deleteBattery(batteryNumber) {
             if (!confirm(`Supprimer la batterie ${batteryNumber} et tout son historique ?`)) {
                 return;
             }
 
-            delete batteries[batteryNumber];
-            saveData();
+            isLoading = true;
+            setSyncStatus(true);
 
-            if (selectedBattery === batteryNumber) {
-                selectedBattery = '';
-                document.getElementById('historySection').style.display = 'none';
+            try {
+                const { error } = await supabase
+                    .from('batteries')
+                    .delete()
+                    .eq('battery_number', batteryNumber);
+
+                if (error) throw error;
+
+                if (selectedBattery === batteryNumber) {
+                    selectedBattery = '';
+                    document.getElementById('historySection').style.display = 'none';
+                }
+
+                await loadBatteriesFromSupabase();
+                updateUI();
+                showToast(`✓ Batterie ${batteryNumber} supprimée`);
+            } catch (error) {
+                console.error('Erreur:', error);
+                showToast('❌ Erreur lors de la suppression');
+            } finally {
+                isLoading = false;
+                setSyncStatus(false);
             }
-
-            updateUI();
-            showToast(`✓ Batterie ${batteryNumber} supprimée`);
         }
 
-        // Log a flight
-        function logFlight() {
+        // Log flight
+        async function logFlight() {
+            if (isLoading) return;
             const battery = document.getElementById('selectedBattery').value;
             const flightTime = document.getElementById('flightTime').value;
             const minVoltage = document.getElementById('minVoltage').value;
@@ -854,51 +972,112 @@
                 return;
             }
 
-            const flight = {
-                date: new Date().toISOString(),
-                flightTime: parseFloat(flightTime),
-                minVoltage: parseFloat(minVoltage),
-                hasProblem: hasProblem,
-                problemDescription: hasProblem ? problemDescription : ''
-            };
+            isLoading = true;
+            setSyncStatus(true);
 
-            batteries[battery].cycles++;
-            batteries[battery].flights.unshift(flight);
+            try {
+                const batteryData = batteries[battery];
 
-            saveData();
+                // Insert flight
+                const { error: flightError } = await supabase
+                    .from('flights')
+                    .insert([{
+                        battery_id: batteryData.id,
+                        battery_number: battery,
+                        flight_time: parseFloat(flightTime),
+                        min_voltage: parseFloat(minVoltage),
+                        has_problem: hasProblem,
+                        problem_description: hasProblem ? problemDescription : null,
+                        flight_date: new Date().toISOString()
+                    }]);
 
-            // Reset form
-            document.getElementById('flightTime').value = '';
-            document.getElementById('minVoltage').value = '';
-            document.getElementById('hasProblem').checked = false;
-            document.getElementById('problemDescription').value = '';
-            toggleProblemDescription();
+                if (flightError) throw flightError;
 
-            updateUI();
-            showToast(`✓ Vol enregistré pour batterie ${battery}`);
+                // Update cycles
+                const { error: updateError } = await supabase
+                    .from('batteries')
+                    .update({ cycles: batteryData.cycles + 1 })
+                    .eq('id', batteryData.id);
+
+                if (updateError) throw updateError;
+
+                // Reset form
+                document.getElementById('flightTime').value = '';
+                document.getElementById('minVoltage').value = '';
+                document.getElementById('hasProblem').checked = false;
+                document.getElementById('problemDescription').value = '';
+                toggleProblemDescription();
+
+                await loadBatteriesFromSupabase();
+                updateUI();
+                showToast(`✓ Vol enregistré pour batterie ${battery}`);
+            } catch (error) {
+                console.error('Erreur:', error);
+                showToast('❌ Erreur lors de l\'enregistrement');
+            } finally {
+                isLoading = false;
+                setSyncStatus(false);
+            }
         }
 
         // Delete last flight
-        function deleteLastFlight(batteryNumber) {
+        async function deleteLastFlight(batteryNumber) {
             if (!confirm('Supprimer le dernier vol enregistré ?')) {
                 return;
             }
 
-            batteries[batteryNumber].flights.shift();
-            batteries[batteryNumber].cycles = Math.max(0, batteries[batteryNumber].cycles - 1);
+            isLoading = true;
+            setSyncStatus(true);
 
-            saveData();
-            updateUI();
-            showToast('✓ Vol supprimé');
+            try {
+                const batteryData = batteries[batteryNumber];
+                const lastFlight = batteryData.flights[0];
+
+                if (!lastFlight) return;
+
+                // Get the flight ID from Supabase
+                const { data: flightData } = await supabase
+                    .from('flights')
+                    .select('id')
+                    .eq('battery_number', batteryNumber)
+                    .eq('flight_date', lastFlight.date)
+                    .single();
+
+                // Delete flight
+                const { error: deleteError } = await supabase
+                    .from('flights')
+                    .delete()
+                    .eq('id', flightData.id);
+
+                if (deleteError) throw deleteError;
+
+                // Update cycles
+                const { error: updateError } = await supabase
+                    .from('batteries')
+                    .update({ cycles: Math.max(0, batteryData.cycles - 1) })
+                    .eq('id', batteryData.id);
+
+                if (updateError) throw updateError;
+
+                await loadBatteriesFromSupabase();
+                updateUI();
+                showToast('✓ Vol supprimé');
+            } catch (error) {
+                console.error('Erreur:', error);
+                showToast('❌ Erreur lors de la suppression');
+            } finally {
+                isLoading = false;
+                setSyncStatus(false);
+            }
         }
 
-        // Toggle problem description visibility
+        // Toggle problem description
         function toggleProblemDescription() {
             const hasProblem = document.getElementById('hasProblem').checked;
             document.getElementById('problemDescriptionGroup').style.display = hasProblem ? 'block' : 'none';
         }
 
-        // Update selected battery for history view
+        // Update selected battery
         function updateSelectedBattery() {
             selectedBattery = document.getElementById('selectedBattery').value;
             updateHistoryView();
@@ -916,14 +1095,14 @@
             });
         }
 
-        // Update entire UI
+        // Update UI
         function updateUI() {
             updateBatterySelect();
             updateBatteryList();
             updateHistoryView();
         }
 
-        // Update battery select dropdown
+        // Update battery select
         function updateBatterySelect() {
             const select = document.getElementById('selectedBattery');
             const currentValue = select.value;
@@ -948,7 +1127,7 @@
             }
         }
 
-        // Update battery overview list
+        // Update battery list
         function updateBatteryList() {
             const list = document.getElementById('batteryList');
             const sortedBatteries = Object.values(batteries).sort((a, b) => {
@@ -1058,10 +1237,40 @@
             `).join('');
         }
 
-        // Initialize on page load
-        loadData();
+        // Toast notification
+        function showToast(message) {
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
 
-        // Handle Enter key in battery number input
+        // PWA Install
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            document.getElementById('installPrompt').classList.add('show');
+        });
+
+        function installApp() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        showToast('Application installée avec succès! 🎉');
+                    }
+                    deferredPrompt = null;
+                    hideInstallPrompt();
+                });
+            }
+        }
+
+        function hideInstallPrompt() {
+            document.getElementById('installPrompt').classList.remove('show');
+        }
+
+        // Handle Enter key
         document.getElementById('newBatteryNumber').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 addBattery();
@@ -1070,12 +1279,13 @@
 
         // Register service worker
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js').then(registration => {
-                console.log('Service Worker enregistré avec succès:', registration);
-            }).catch(error => {
-                console.log('Échec de l\'enregistrement du Service Worker:', error);
+            navigator.serviceWorker.register('sw.js').catch(error => {
+                console.log('Service Worker error:', error);
             });
         }
+
+        // Initialize app on load
+        initApp();
     </script>
 </body>
 </html>
